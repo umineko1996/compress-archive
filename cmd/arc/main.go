@@ -1,47 +1,54 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/umineko1996/compress-archive/archive"
 )
 
+const (
+	success = iota
+	failed
+)
+
 func main() {
+	os.Exit(Run())
+}
+
+func Run() int {
 	srcPath, dstPath := getArg()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	fileList, err := getFileCh(ctx, srcPath)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 
 	arcFile, err := archive.Create(dstPath)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		fmt.Printf("archive file create error: %s\n", err.Error())
+		return failed
 	}
 	defer arcFile.Close()
 
 	offsetPath := filepath.Dir(srcPath)
-	for srcFilePath := range fileList {
-		dstFilePath, err := filepath.Rel(offsetPath, srcFilePath)
+	if err := filepath.Walk(srcPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			fmt.Printf("src filepath walk error: %s\n", err.Error())
+			return err
 		}
-		if err := arcFile.Append(dstFilePath, srcFilePath); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+		if info.IsDir() {
+			return nil
 		}
+		dstName, err := filepath.Rel(offsetPath, path)
+		if err != nil {
+			fmt.Printf("dstname relative error: %s\n", err.Error())
+			return err
+		}
+		return arcFile.Append(dstName, path)
+	}); err != nil {
+		fmt.Printf("archive file append src file error: %s\n", err.Error())
+		return failed
 	}
+
+	return success
 }
 
 func getArg() (src, dst string) {

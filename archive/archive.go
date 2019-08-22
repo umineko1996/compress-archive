@@ -5,8 +5,10 @@ import (
 	"archive/zip"
 	"compress/gzip"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 )
 
@@ -68,6 +70,9 @@ func (f File) Append(dstFileName, srcFilePath string) error {
 	if err != nil {
 		return err
 	}
+	if fileInfo.IsDir() {
+		return nil
+	}
 	r, err := os.Open(srcFilePath)
 	if err != nil {
 		return err
@@ -108,8 +113,15 @@ func newZipWriter(w io.Writer) arcWriter {
 	return &zipWriter{Writer: zw}
 }
 
-func (zw zipWriter) Create(filepath string, fileInfo os.FileInfo) (io.Writer, error) {
-	return zw.Writer.Create(filepath)
+func (zw zipWriter) Create(path string, fileInfo os.FileInfo) (io.Writer, error) {
+	if fileInfo.IsDir() {
+		return nil, nil
+	}
+
+	path = filepath.ToSlash(path)
+	fmt.Println(path)
+
+	return zw.Writer.Create(path)
 }
 
 type tarWriter struct {
@@ -123,12 +135,19 @@ func newTarWriter(w io.Writer) arcWriter {
 	return &tarWriter{Writer: tw, gzw: gw}
 }
 
-func (tw tarWriter) Create(filepath string, fileInfo os.FileInfo) (io.Writer, error) {
+func (tw tarWriter) Create(path string, fileInfo os.FileInfo) (io.Writer, error) {
+	path = filepath.ToSlash(path)
+	fmt.Println(path)
+
 	hdr, err := tar.FileInfoHeader(fileInfo, "")
 	if err != nil {
 		return nil, err
 	}
-	hdr.Name = filepath
+	if fileInfo.IsDir() {
+		hdr.Name = path + "/"
+	} else {
+		hdr.Name = path
+	}
 
 	if err := tw.WriteHeader(hdr); err != nil {
 		return nil, err

@@ -28,15 +28,14 @@ func Run() int {
 	}
 	defer arcFile.Close()
 
+	srcPath = filepath.Clean(srcPath)
 	offsetPath := filepath.Dir(srcPath)
 	if err := filepath.Walk(srcPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Printf("src filepath walk error: %s\n", err.Error())
 			return err
 		}
-		if info.IsDir() {
-			return nil
-		}
+
 		dstName, err := filepath.Rel(offsetPath, path)
 		if err != nil {
 			fmt.Printf("dstname relative error: %s\n", err.Error())

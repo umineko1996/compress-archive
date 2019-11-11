@@ -121,7 +121,12 @@ func (zw zipWriter) Create(path string, fileInfo os.FileInfo) (io.Writer, error)
 	path = filepath.ToSlash(path)
 	fmt.Println(path)
 
-	return zw.Writer.Create(path)
+	fh, err := zip.FileInfoHeader(fileInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return zw.Writer.CreateHeader(fh)
 }
 
 type tarWriter struct {
